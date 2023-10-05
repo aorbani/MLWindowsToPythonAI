@@ -7,6 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using IronPython.Hosting;
+using IronPython.Runtime;
+using IronPython.Runtime.Operations;
+using Microsoft.Scripting.Hosting;
 
 namespace LoanApp
 {
@@ -44,12 +48,11 @@ namespace LoanApp
             int incidents = int.Parse(this.pastTextBox.Text);
 
 
-            var module_folder = @"D:\Workspace\VisualStudioProj\WindowsToPythonAI\python_model";
+            var module_folder = $@"{System.IO.File.ReadAllText("callerPath.txt")}\python_model";
             var module_name = "run_keras_model";
             var class_name = "LoanModel";
             var def_name = "predict_this";
 
-            //Model input arguments preparation
             var methodArguments = new PythonCallerArgs();
 
             methodArguments.AddArg("loan_amnt", loan_amount);
@@ -63,12 +66,16 @@ namespace LoanApp
             methodArguments.AddArg("inq_last_12m", credit_inq);
             methodArguments.AddArg("delinq_2yrs", incidents);
 
-            methodArguments.AddMetaArg("caller", "WindowsToPythonAI");
+            methodArguments.AddMetaArg("caller", "MLTestWindowsToPythonAI");
 
             // Now we can create a caller object and bind it to the model
+            
             var pyCaller = new PythonCaller(module_folder, module_name);
             Dictionary<string, string> resultJson = pyCaller.CallClassMethod(class_name, def_name, methodArguments);
-            this.statusTextBox.Text = resultJson["prediction"];
+            var result = resultJson["prediction"] ?? "nth";
+            this.statusTextBox.Text = result;
+            Console.WriteLine(result);
         }
+        
     }
 }

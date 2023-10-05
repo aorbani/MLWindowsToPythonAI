@@ -3,24 +3,31 @@ from keras.models import model_from_json
 from pickle import load
 import json
 import datetime
+import sys
+import os
 
 class LoanModel:
-    def __init__(self):
+    def __init__(self,dirpath):
         self.__model = None
-        with open('D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\model.json', 'r') as json_file:
+        self.__dirpath = dirpath
+        with open(self.__dirpath + '\\python_model\\model.json', 'r') as json_file:
             loaded_model_json = json_file.read()
             self.__model = model_from_json(loaded_model_json)
-            self.__model.load_weights("D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\model.h5")
+            self.__model.load_weights(self.__dirpath + '\\python_model\\model.h5')
             self.__model.compile(optimizer ='adam',loss='binary_crossentropy', metrics =['accuracy'])
         
-        self.__scaler = load(open('D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\scaler.pkl', 'rb'))
-        self.__grade_encoder = load(open('D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\grade_encoder.pkl', 'rb'))
-        self.__ownership_encoder = load(open('D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\ownership_encoder.pkl', 'rb'))
-        self.__purpose_encoder = load(open('D:\\Workspace\\VisualStudioProj\\WindowsToPythonAI\\python_model\\purpose_encoder.pkl', 'rb'))
+        self.__scaler = load(open(self.__dirpath + '\\python_model\\scaler.pkl', 'rb'))
+        self.__grade_encoder = load(open(self.__dirpath + '\\python_model\\grade_encoder.pkl', 'rb'))
+        self.__ownership_encoder = load(open(self.__dirpath + '\\python_model\\ownership_encoder.pkl', 'rb'))
+        self.__purpose_encoder = load(open(self.__dirpath + '\\python_model\\purpose_encoder.pkl', 'rb'))
+
 
     def predict_this(self, json_arguments):
+        old_stdout = sys.stdout # backup current stdout
+        sys.stdout = open(os.devnull, "w")
         de_serialized_args = json.loads(json_arguments)
-        pd_input = self.get_input_params( de_serialized_args["model_input"] )
+        
+        pd_input = self.get_input_params( de_serialized_args['model_input'] )
         
         prediction = self.__model.predict(pd_input)
         result = "GRANTED" if prediction[0][0] > 0.8 else "REJECTED"
@@ -28,11 +35,11 @@ class LoanModel:
             "prediction" : result,
             "timestamp" : str(datetime.datetime.now())
         }
-
-        
+        sys.stdout = old_stdout
         return json.dumps(return_obj)
         
     def get_input_params(self, input_obj):
+        
         grade = pd.Series(input_obj['grade'])
         home_ownership = pd.Series(input_obj['home_ownership'])
         purpose = pd.Series(input_obj['purpose'])
@@ -49,9 +56,10 @@ class LoanModel:
             'inq_last_12m': [ input_obj['inq_last_12m'] ],
             'delinq_2yrs': [ input_obj['delinq_2yrs'] ]
         })
-
+        self.__scaler.clip = False
         pd_input = self.__scaler.transform( pd_input )
         return pd_input
         
 if ( __name__ == '__main__' ):
     print("Testing Keras model from Windows Forms application")
+    

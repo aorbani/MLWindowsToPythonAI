@@ -1,1 +1,1 @@
-﻿D:\Installed\Anaconda3\envs\PythonGPU\python.exe
+﻿C:\Users\92292\AppData\Local\anaconda3\python.exe

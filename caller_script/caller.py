@@ -4,7 +4,7 @@ import os
 
 if __name__ == "__main__":
     # The order of the arguments is the same as in the PythonCaller class
-    _, script_path, script_name, classname, methodname, jsonarg = sys.argv
+    _, script_path, script_name, classname, methodname, jsonarg,dir_path = sys.argv
 
     cmd_folder = os.path.realpath(os.path.abspath(script_path))
     
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     themodule = importlib.import_module(script_name)
     # Get the class itself and create an instance
     theclass = getattr(themodule, classname)
-    obj = theclass()
+    obj = theclass(dir_path)
     # Get the method to be called
     thefunc = getattr(obj, methodname)
     # Result of the invoked method is printed to the stdout and caught by the PythonCaller class

@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Collections.Generic;
 using System;
-using Newtonsoft.Json.Schema;
 
 namespace LoanApp
 {
@@ -22,7 +21,6 @@ namespace LoanApp
 
         public void AddMetaArg(string property, object obj)
         {
-            //Convert each argument to json to keep all consistently
             metaArgs.Add(JsonConvert.SerializeObject(property, jsonSer), JsonConvert.SerializeObject(obj, jsonSer));
         }
 
@@ -38,7 +36,7 @@ namespace LoanApp
             return JsonConvert.SerializeObject(metaArgs);
         }
     }
-
+    
     //Class for script caller.
     class PythonCaller
     {
@@ -47,21 +45,17 @@ namespace LoanApp
         private string scriptName = "";
         private string errors = "";
         private string results = "";
-        //Script-aggregator with the logic for calling the desired method
         private string caller = "";
         private string envPath = "";
 
         public PythonCaller(string scriptPath_, string scriptName_)
         {
-            //callerPath file contains the absolute path or the relative to the caller.py
-            caller = System.IO.File.ReadAllText("callerPath.txt");
+            caller = System.IO.File.ReadAllText("callerPath.txt") + "\\caller_script\\caller.py";
 
             psi = new ProcessStartInfo();
-            //pythonPath file contains the absolute path to the python.exe
             psi.FileName = System.IO.File.ReadAllText("pythonPath.txt");
             string[] separatingStrings = { "\\python.exe"};
             envPath = psi.FileName.Split(separatingStrings, System.StringSplitOptions.RemoveEmptyEntries)[0];
-            // Get control over stdin and stderr
             psi.UseShellExecute = false;
             psi.CreateNoWindow = true;
             psi.RedirectStandardOutput = true;
@@ -77,26 +71,30 @@ namespace LoanApp
             errors = "";
             string argString = args.Serialized();
 
-            //Caller produces the command:
-            // path/to/python.exe caller.py path/to/python/module python_module_name class_name method_name args_string
-            //caller.py is the aggregator script, which finds the desired script (python_module_name.py), imports its contents and calls the class method
-            //args_string is JSON-formatted array of the arguments for the desired script (python_module_name.py)
-
-            psi.Arguments = $"\"{caller}\" \"{scriptPath}\" \"{scriptName}\" \"{className}\" \"{method}\" \"{argString}\"";
-
-            
-            var value = System.Environment.GetEnvironmentVariable("PATH");
-            var new_value = envPath + "\\:" + envPath + "\\Scripts:" + value;
-            System.Environment.SetEnvironmentVariable("PATH", new_value);
-
-            using (var process = Process.Start(psi))
+            try
             {
-                errors = process.StandardError.ReadToEnd();
-                results = process.StandardOutput.ReadToEnd();
-            }
+                psi.Arguments =  $"\"{caller}\" \"{scriptPath}\" \"{scriptName}\" \"{className}\" \"{method}\" \"{argString}\" \"{System.IO.File.ReadAllText("callerPath.txt")}\"";
+                
 
-            Dictionary<string, string> ob = JsonConvert.DeserializeObject< Dictionary<string, string>>(results);
-            return ob;
+                var value = System.Environment.GetEnvironmentVariable("PATH");
+                var new_value = envPath + "\\:" + envPath + "\\Scripts:" + value;
+                System.Environment.SetEnvironmentVariable("PATH", new_value);
+
+                using (var process = Process.Start(psi))
+                {
+                    errors = process.StandardError.ReadToEnd();
+                    results = process.StandardOutput.ReadToEnd();
+                    
+                }
+                Console.WriteLine(errors);
+                Console.WriteLine(results);
+                Dictionary<string, string> ob = JsonConvert.DeserializeObject<Dictionary<string, string>>(results);
+                return ob;
+            }catch (Exception ex)
+            {
+                errors = ex.Message;
+            }
+            return null;
         }
 
         public string GetErrors()
