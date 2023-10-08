@@ -1,4 +1,6 @@
 LoanApp/bin
 LoanApp/obj
 LoanApp/packages
-python_model/__pycache__
+python_model/__pycache_
+*.pkl
+**\*.pkl
