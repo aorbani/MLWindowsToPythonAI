@@ -7,7 +7,10 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import OneHotEncoder
+import lightgbm as lgb
 import time
+from sklearn.metrics import r2_score
+
 
 ###########################{ Data Cleansing }####################################
 
@@ -97,11 +100,17 @@ def evaluate(model, test_features, test_labels):
     mape = 100 * np.mean(errors[non_zero_indices] / test_labels[non_zero_indices])
 
     accuracy = 100 - mape
-    # print('Model Performance')
-    # print('Average Error: {:0.4f}.'.format(np.mean(errors)))
-    # print('Accuracy = {:0.2f}%.'.format(accuracy))
+    print('Model Performance')
+    print('Average Error: {:0.4f}.'.format(np.mean(errors)))
+    print('Accuracy = {:0.2f}%.'.format(accuracy))
 
     return accuracy
+
+def compute_rmse(actual, predicted):
+    return np.sqrt(mean_squared_error(actual, predicted))
+
+def compute_r_squared(actual, predicted):
+    return r2_score(actual, predicted)
 
 ###########################{ Hyperparameter Tuning }####################################
 def hyperparameter_tuning(X_train, Y_train):
@@ -122,6 +131,27 @@ def hyperparameter_tuning(X_train, Y_train):
     best_params = grid_search.best_params_
     print(best_params)
     return grid_search.best_estimator_
+
+def tune_lgbm_hyperparameters(X_train, y_train):
+    # Define the model
+    model = lgb.LGBMRegressor()
+
+    # Define the hyperparameters and their possible values
+    param_grid = {
+        'learning_rate': [0.01, 0.05, 0.1],
+        'n_estimators': [20, 40, 60, 80, 100],
+        'num_leaves': [15, 31, 63, 127],
+        'min_child_samples': [10, 20, 30],
+        'subsample': [0.8, 0.9, 1.0],
+        'colsample_bytree': [0.6, 0.8, 1.0]
+    }
+
+    # Define grid search
+    grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', cv=3, verbose=1, n_jobs=-1)
+    grid_result = grid.fit(X_train, y_train)
+    print(grid_result.best_params_)
+
+    return grid_result.best_estimator_, grid_result.best_params_
 
 ###########################{ ML Model }####################################
 def ML_model():
@@ -175,32 +205,45 @@ def ML_model():
     #Train Test Split
     X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size=0.3, random_state=42)
 
-    # #instantiate the model for linear regression
-    model = LinearRegression()
-    #fit the model
-    model.fit(X_train,Y_train)
-    # get the prediction
-    predicted_Y_test = model.predict(X_test)
-    # get the error for the prediction
-    #print("\nThis is the regular linear regression data mean squared error: " + str(np.sqrt(mean_squared_error(Y_test, predicted_Y_test)).round(2)))
 
-    # Instantiate the grid search model
-
-    # Evaluate the models
-    # base_model = RandomForestRegressor(n_estimators=1000, random_state=42)
+    #Intantiate the random forest regressor model
     base_model = RandomForestRegressor(bootstrap= True,max_features= 0.6, min_samples_leaf= 2, n_estimators= 1700, random_state=42)
     base_model.fit(X_train, Y_train)
+    # get the prediction
+    predicted_Y_test = base_model.predict(X_test)
 
-    base_accuracy = evaluate(base_model, X_test, Y_test)
-    linear_regression_accuracy = evaluate(model,X_test,Y_test)
+    #Instantiate the lightgbm model
+    base_model2 = lgb.LGBMRegressor(random_state=42,colsample_bytree= 0.8, learning_rate= 0.05, min_child_samples=10, n_estimators=100, num_leaves=31, subsample=0.8)
+    base_model2.fit(X_train,Y_train)
+    # get the prediction
+    predicted_Y_test2 = base_model2.predict(X_test)
+
+
+    #evaluate the model
+    print("\nRandom Forrest model")
+    evaluate(base_model, X_test, Y_test)
+    # get the error for the prediction
+    print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test):.2f}")
+    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test)*100:.2f}%")
+
+    print("\nLGB model")
+    evaluate(base_model2, X_test, Y_test)
+    # get the error for the prediction
+    print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test2):.2f}")
+    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test2)*100:.2f}%")
+
+
 
     #hyperparameter tuning
+
     # best_rf = hyperparameter_tuning(X_train, Y_train)
     # base_accuracy2 = evaluate(best_rf, X_test, Y_test)
     # print(f"Base Model2 Accuracy: {base_accuracy2:.2f}%")
 
-    print(f"Base Model Accuracy: {base_accuracy:.2f}%")
-    print(f"Linear regression model Accuracy: {linear_regression_accuracy:.2f}%")
+    # best_model,best_hyperparameters = tune_lgbm_hyperparameters(X_train, Y_train)
+    # predicted_Y_test2 = best_model.predict(X_test)
+    # evaluate(best_model, X_test, Y_test)
+    # print(f"Best Hyperparameters: {best_hyperparameters}")
 
 
     # #======================================={ Testing human input and prediction }====================
@@ -253,3 +296,5 @@ print(f"Elapsed time: {elapsed_time:.2f} minutes")
 
 # {'bootstrap': True, 'max_features': 0.6, 'min_samples_leaf': 2, 'n_estimators': 1000}
 # Base Model2 Accuracy: 86.08%
+
+#{'colsample_bytree': 0.8, 'learning_rate': 0.05, 'min_child_samples': 10, 'n_estimators': 100, 'num_leaves': 31, 'subsample': 0.8}
