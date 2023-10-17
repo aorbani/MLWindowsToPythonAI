@@ -77,3 +77,14 @@ if __name__ == '__main__':
     app.run(debug=True)
 
     app.run(debug=True)
+
+
+# {
+#     "COLOR_CODE": 404,
+#     "MODEL_YEAR":2016,
+#     "car_age":3,
+#     "CAR_KIND_CODE": 3642,
+#     "CAR_METER": 50000,
+#     "car_origin": "Japan"
+#
+# }
