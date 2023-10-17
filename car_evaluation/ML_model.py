@@ -6,8 +6,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import OneHotEncoder
-import lightgbm as lgb
+import lightgbm as lgb #light gradient boosting machine
 import time
 from sklearn.metrics import r2_score
 
@@ -111,6 +112,9 @@ def compute_rmse(actual, predicted):
 
 def compute_r_squared(actual, predicted):
     return r2_score(actual, predicted)
+
+def compute_abolute_error(actual, predicted):
+    return mean_absolute_error(actual,predicted)
 
 ###########################{ Hyperparameter Tuning }####################################
 def hyperparameter_tuning(X_train, Y_train):
@@ -223,14 +227,16 @@ def ML_model():
     print("\nRandom Forrest model")
     evaluate(base_model, X_test, Y_test)
     # get the error for the prediction
-    print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test):.2f}")
-    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test)*100:.2f}%")
+    # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test):.2f}")
+    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test):.2f}")
+    print(f"Base Model mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test):.2f}")
 
     print("\nLGB model")
     evaluate(base_model2, X_test, Y_test)
     # get the error for the prediction
-    print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test2):.2f}")
-    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test2)*100:.2f}%")
+    # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test2):.2f}")
+    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test2):.2f}")
+    print(f"Base Model2 mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test2):.2f}")
 
 
 
