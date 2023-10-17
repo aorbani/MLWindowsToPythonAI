@@ -16,17 +16,23 @@ from sklearn.metrics import r2_score
 ###########################{ Data Cleansing }####################################
 
 #calculates the car age based on the selling date and the model year
-def car_age(row):
-    selling_year = str(row['D_SELLING_DATE'])[:4]
-    model_year = row['MODEL_YEAR']
-    #check for NAN
-    if pd.isna(selling_year) or pd.isna(model_year):
-        return 0
-    else:
-        selling_year = int(selling_year)
-        model_year = int(model_year)
-    age = selling_year-model_year
-    return age
+def calculate_car_age(df):
+    """Calculate the age of the car for the entire dataframe."""
+    # Extract the selling year from 'D_SELLING_DATE'
+    df['selling_year'] = df['D_SELLING_DATE'].astype(str).str[:4]
+
+    # Ensure that both selling_year and MODEL_YEAR are numeric types
+    df['selling_year'] = pd.to_numeric(df['selling_year'], errors='coerce')
+    df['MODEL_YEAR'] = pd.to_numeric(df['MODEL_YEAR'], errors='coerce')
+
+    # Compute car age
+    df['car_age'] = df['selling_year'] - df['MODEL_YEAR']
+
+    # Replace NaN values with 0
+    df['car_age'].fillna(0, inplace=True)
+    df['car_age'] = df['car_age'].astype(int)
+    return df
+
 
 #unify the colors to single whole numbers without interior colours to simplify the data
 def colour_description(df, column_name="COLOR_DESC"):
@@ -68,7 +74,7 @@ def car_class(df, class_value):
     return df[(df['CAR_CLASS']==class_value) & (pd.notna(df['company name']))]
 
 def car_company(df, class_value):
-    return df[df['Car origin'] == class_value]
+    return df[df['car_origin'] == class_value]
 
 #add the car's origin to have a more focused model. feature derivation
 def classify_origin(df, column_name="company name"):
@@ -80,11 +86,11 @@ def classify_origin(df, column_name="company name"):
     German = ['BMW','Mercedes','Audi']
     European = []
 
-    df['Car origin'] = 'other company'
+    df['car_origin'] = 'other company'
 
-    df.loc[df[column_name].isin(Japanese), 'Car origin'] = 'Japan'
-    df.loc[df[column_name].isin(American), 'Car origin'] = 'America'
-    df.loc[df[column_name].isin(Korean), 'Car origin'] = 'Korea'
+    df.loc[df[column_name].isin(Japanese), 'car_origin'] = 'Japan'
+    df.loc[df[column_name].isin(American), 'car_origin'] = 'America'
+    df.loc[df[column_name].isin(Korean), 'car_origin'] = 'Korea'
     return df
 
 # this rounds the prices of the cars to the nearest hundredth
@@ -161,12 +167,13 @@ def tune_lgbm_hyperparameters(X_train, y_train):
 def ML_model():
     car_data = pd.read_csv("/Users/abdulrahmanalamar/Desktop/evaluation cars/Evaluation Cars.csv")
 
-    car_data['car_age'] = car_data.apply(car_age,axis=1)
+    car_data = calculate_car_age(car_data)
     car_data = colour_description(car_data)
     car_data = color_grouping(car_data)
     car_data= Car_description(car_data)
     car_data = car_class(car_data, 'USED')
     car_data = classify_origin(car_data)
+
 
     #car_data = rounding_prices(car_data)
     # car_data = car_company(car_data,'Japan')
@@ -176,23 +183,26 @@ def ML_model():
 
     #filter the data for frequency of kind code higher than 18
     car_data_filtered = car_data[car_data.groupby('CAR_KIND_CODE')['CAR_KIND_CODE'].transform('count')>=100]
-    print(len(car_data_filtered))
+    car_data_filtered = car_data[car_data.groupby('CAR_METER')['CAR_METER'].transform('min')>0]
+
     #drop the unwanted columns
     car_data_filtered = car_data_filtered.drop(["D_INVOICE_NO","D_SELLING_DATE","D_RETAIL_PRICE","D_BUY_PRICE","D_EQUIP_CHRG","D_TOTAL_DEBIT","D_INITIAL_PRICE","DOWN_PAYMENT","D_INST_AMOUNT","D_INSTS_QTY","D_INSTS_MONTHS","CAR_SECTION","COLOR_DESC"], axis = 'columns')
+
     car_data_filtered.to_csv('output_after_cleaning.csv', index=False, encoding='utf-8-sig')
 
     #show the count of cars after cleansing
     count_cars = car_data_filtered['CAR_KIND_DESC'].value_counts()
     # print(count_cars.to_markdown())
-    print(pd.Series(car_data_filtered['company name'].unique()).to_markdown())
+    # print(pd.Series(car_data_filtered['company name'].unique()).to_markdown())
 
     #calculate the correlation matrix
-    # corr_car_data = car_data_filtered.corr().round(2)
-    # print(corr_car_data.to_markdown())
+    numeric_df = car_data_filtered.select_dtypes(include=[np.number])
+    correlation_matrix = numeric_df.corr().round(2)
+    print(correlation_matrix.to_markdown())
 
     #do one hot encoding
     encoder = OneHotEncoder(handle_unknown='ignore',drop='first')
-    encoded_columns = ['CAR_KIND_CODE','car_colour','Car origin']
+    encoded_columns = ['CAR_KIND_CODE','COLOR_CODE','car_origin']
     encoder_car_data_filtered = pd.DataFrame(encoder.fit_transform(car_data_filtered[encoded_columns]).toarray(),columns=encoder.get_feature_names_out(encoded_columns),index=car_data_filtered.index)
 
     #join encoded data to original
@@ -224,19 +234,19 @@ def ML_model():
 
 
     #evaluate the model
-    print("\nRandom Forrest model")
-    evaluate(base_model, X_test, Y_test)
-    # get the error for the prediction
-    # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test):.2f}")
-    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test):.2f}")
-    print(f"Base Model mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test):.2f}")
-
-    print("\nLGB model")
-    evaluate(base_model2, X_test, Y_test)
-    # get the error for the prediction
-    # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test2):.2f}")
-    print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test2):.2f}")
-    print(f"Base Model2 mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test2):.2f}")
+    # print("\nRandom Forrest model")
+    # evaluate(base_model, X_test, Y_test)
+    # # get the error for the prediction
+    # # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test):.2f}")
+    # print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test):.2f}")
+    # print(f"Base Model mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test):.2f}")
+    #
+    # print("\nLGB model")
+    # evaluate(base_model2, X_test, Y_test)
+    # # get the error for the prediction
+    # # print(f"Base Model RMSE: {compute_rmse(Y_test, predicted_Y_test2):.2f}")
+    # print(f"Base Model R^{2}: {compute_r_squared(Y_test, predicted_Y_test2):.2f}")
+    # print(f"Base Model2 mean absolute error: {compute_abolute_error(Y_test, predicted_Y_test2):.2f}")
 
 
 
@@ -260,34 +270,44 @@ def ML_model():
     # # kind_code = input("Enter kind code: ")
     # # millage = input("Enter Millage: ")
     #
-    # #hard coded inputs for testing purposes
-    # D_COLOR = 2004.0
-    # model_year = 2016
-    # car_age = 3
-    # kind_code = 3642.0
-    # millage = 50000
-    #
-    # #specify the categorical data that we need to set to 1
-    # kind_str = 'kind_code_{}'
-    # D_COLOR_str = 'D_COLOR_{}'
-    # D_COLOR_str = D_COLOR_str.format(D_COLOR)
-    # kind_str = kind_str.format(kind_code)
-    #
-    # # Create a dataframe to hold the input data, needs to be the same order as train set, the ones are there to set the specified featueres
-    # input_data = pd.DataFrame([[model_year,car_age,millage,1,1]],
-    #                           columns=['model','car_age','meter_reading',kind_str,D_COLOR_str])
-    #
-    # # since we're using one-hot-encoding, we need to set the binary feature columns to ON and zero out the rest of the columns. hence the fill value=0
-    # input_data = input_data.reindex(columns=X_train.columns,fill_value=0)
-    #
-    # manual_input_prediction = base_model.predict(input_data)
-    # print(manual_input_prediction)
-    #
-    #
+    #hard coded inputs for testing purposes
+    COLOR_CODE = 404 #maybe add a lookup for this
+    model_year = 2016
+    car_age = 3
+    CAR_KIND_CODE = 3642
+    millage = 50000
+    car_origin = 'Japan'
+
+    #specify the categorical data that we need to set to 1
+    CAR_KIND_CODE_str = 'CAR_KIND_CODE_{}'
+    COLOR_CODE_str = 'COLOR_CODE_{}'
+    car_origin_str = 'car_origin_{}'
+
+
+    COLOR_CODE_str = COLOR_CODE_str.format(COLOR_CODE)
+    CAR_KIND_CODE_str = CAR_KIND_CODE_str.format(CAR_KIND_CODE)
+    car_origin_str = car_origin_str.format(car_origin)
+
+    # Create a dataframe to hold the input data, needs to be the same order as train set, the ones are there to set the specified featueres
+    input_data = pd.DataFrame([[model_year,car_age,millage,1,1,1]],
+                              columns=['MODEL_YEAR','car_age','CAR_METER',CAR_KIND_CODE_str,COLOR_CODE_str,car_origin_str])
+
+    # since we're using one-hot-encoding, we need to set the binary feature columns to ON and zero out the rest of the columns. hence the fill value=0
+    input_data = input_data.reindex(columns=X_train.columns,fill_value=0)
+    print(input_data.to_markdown())
+
+    manual_input_prediction = base_model.predict(input_data)
+    manual_input_prediction_2 = base_model2.predict(input_data)
+    print("\nthis is RF:")
+    print(manual_input_prediction)
+    print("\nThis is LGBM:")
+    print(manual_input_prediction_2)
+
+
     # #work on derived features
     # #maybe look into the decay per car or per origin manufacturer per year and quantify that and add it as a feature.
     # #try to guess the profit margin using ensemble training by feeding the prediction into the linear regression module and so forth
-    # return base_model, encoder, X_train
+    return base_model, encoder, X_train
 
 start_time = time.time()
 ML_model()

@@ -37,19 +37,32 @@ with open("encoder.pkl", "rb") as encoder_file:
 def predict():
     data = request.get_json()
 
-    D_COLOR = data["D_COLOR"]
-    model_year = data["model_year"]
+    COLOR_CODE = data["COLOR_CODE"]
+    model_year = data["MODEL_YEAR"]
     car_age = data["car_age"]
-    kind_code = data["kind_code"]
-    millage = data["millage"]
+    CAR_KIND_CODE = data["CAR_KIND_CODE"]
+    CAR_METER = data["CAR_METER"]
+    car_origin = data['car_origin']
 
-    # specify the categorical data that we need to set to 1
-    kind_str = 'kind_code_{}'.format(kind_code)
-    D_COLOR_str = 'D_COLOR_{}'.format(D_COLOR)
+    # # specify the categorical data that we need to set to 1
+    # kind_str = 'kind_code_{}'.format(kind_code)
+    # D_COLOR_str = 'D_COLOR_{}'.format(D_COLOR)
+    #
+    # # Create a dataframe to hold the input data
+    # input_data = pd.DataFrame([[model_year, car_age, millage, 1, 1]],
+    #                           columns=['model', 'car_age', 'meter_reading', kind_str, D_COLOR_str])
 
-    # Create a dataframe to hold the input data
-    input_data = pd.DataFrame([[model_year, car_age, millage, 1, 1]],
-                              columns=['model', 'car_age', 'meter_reading', kind_str, D_COLOR_str])
+
+    #specify the categorical data that we need to set to 1
+    CAR_KIND_CODE_str = 'CAR_KIND_CODE_{}'.format(CAR_KIND_CODE)
+    COLOR_CODE_str = 'COLOR_CODE_{}'.format(COLOR_CODE)
+    car_origin_str = 'car_origin_{}'.format(car_origin)
+
+
+
+    # Create a dataframe to hold the input data, needs to be the same order as train set, the ones are there to set the specified featueres
+    input_data = pd.DataFrame([[model_year,car_age,CAR_METER,1,1,1]],
+                              columns=['MODEL_YEAR','car_age','CAR_METER',CAR_KIND_CODE_str,COLOR_CODE_str,car_origin_str])
 
     # Reindex as before
     with open("train_columns.pkl", "rb") as tc_file:
